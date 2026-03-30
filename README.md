@@ -29,6 +29,16 @@ Local Search je web aplikacija koja indeksira sve tvoje datoteke i omogućuje br
 
 ### Instalacija
 
+Debian
+```bash
+apt update && sudo apt install python3-flask python3-whoosh python3-fitz python3-docx python3-watchdog xdg-utils -y
+```
+
+Fedora/RHEL
+```bash
+sudo dnf install python3-flask python3-whoosh python3-pymupdf python3-python-docx python3-watchdog xdg-utils -y
+```
+
 ```bash
 git clone https://github.com/spidermanhr/local_search.git
 cd local_search
@@ -108,6 +118,16 @@ Local Search is a web application that indexes all your files and enables fast s
 - ⚙️ Settings — exclude folders from search, choose types for full-text indexing
 
 ### Installation
+
+Debian
+```bash
+apt update && sudo apt install python3-flask python3-whoosh python3-fitz python3-docx python3-watchdog xdg-utils -y
+```
+
+Fedora/RHEL
+```bash
+sudo dnf install python3-flask python3-whoosh python3-pymupdf python3-python-docx python3-watchdog xdg-utils -y
+```
 
 ```bash
 git clone https://github.com/spidermanhr/local_search.git
