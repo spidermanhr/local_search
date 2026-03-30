@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ config.app_name }} Search</title>
+    <title>{{ config.app_name }}</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f1f3f4; color: #202124; }
         .navbar { background: white; padding: 12px 30px; border-bottom: 1px solid #dfe1e5; display: flex; align-items: center; justify-content: space-between; position: sticky; top:0; z-index: 100; }
@@ -141,10 +141,6 @@
             <p style="margin-bottom: 5px;">Isključi mape iz pretrage:</p>
             <div id="folderCheckList" class="folder-check-list">Učitavam mape...</div>
 
-            <p style="margin: 15px 0 5px;">Indeksiraj sadržaj (full-text pretraga):</p>
-            <p style="font-size: 11px; color: #70757a; margin: 0 0 8px;">Isključeno = samo imena datoteka (manja baza, brže)</p>
-            <div id="contentTypeList" class="folder-check-list">Učitavam...</div>
-
             <hr style="margin: 15px 0; border: none; border-top: 1px solid #eee;">
             <p style="margin: 0 0 4px; font-weight: 500;">Indeksiraj sadržaj (full-text pretraga):</p>
             <p style="font-size: 11px; color: #70757a; margin: 0 0 8px;">Isključeno = samo imena datoteka (manja baza, brže pokretanje)</p>
@@ -271,37 +267,56 @@
         function openSettings() {
             document.getElementById('settingsModal').style.display = 'block';
             fetch('/list_folders').then(r => r.json()).then(data => {
+                // Mape
                 const list = document.getElementById('folderCheckList');
-                // Čistimo stari sadržaj
                 list.innerHTML = '';
                 data.folders.forEach(f => {
                     const item = document.createElement('div');
                     item.className = 'folder-item';
-
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.id = `f_${CSS.escape(f)}`;
                     checkbox.value = f;
                     checkbox.checked = data.ignored.includes(f);
-
                     const label = document.createElement('label');
                     label.htmlFor = `f_${CSS.escape(f)}`;
-                    // textContent — sigurno, ne innerHTML
                     label.textContent = `📁 ${f}`;
-
                     item.appendChild(checkbox);
                     item.appendChild(label);
                     list.appendChild(item);
                 });
+
+                // Content types
+                const ctList = document.getElementById('contentTypeList');
+                ctList.innerHTML = '';
+                const groups = data.content_type_groups || {};
+                const enabled = data.index_content_types || [];
+                Object.entries(groups).forEach(([key, label]) => {
+                    const item = document.createElement('div');
+                    item.className = 'folder-item';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.id = 'ct_' + key;
+                    cb.value = key;
+                    cb.checked = enabled.includes(key);
+                    const lbl = document.createElement('label');
+                    lbl.htmlFor = 'ct_' + key;
+                    lbl.textContent = label;
+                    item.appendChild(cb);
+                    item.appendChild(lbl);
+                    ctList.appendChild(item);
+                });
+
             }).catch(err => {
                 document.getElementById('folderCheckList').textContent = `Greška: ${err.message}`;
             });
         }
 
         function saveSettings() {
-            const btn = document.querySelector('#settingsModal .btn-action');
+            const btn = document.querySelector('#settingsModal .btn-action:last-of-type');
             const name = document.getElementById('appNameInput').value;
-            const checked = Array.from(document.querySelectorAll('#folderCheckList input:checked')).map(i => i.value);
+            const ignored = Array.from(document.querySelectorAll('#folderCheckList input:checked')).map(i => i.value);
+            const contentTypes = Array.from(document.querySelectorAll('#contentTypeList input:checked')).map(i => i.value);
 
             btn.disabled = true;
             btn.textContent = 'Spremam...';
@@ -309,13 +324,13 @@
             fetch('/update_settings', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name: name, ignored: checked})
+                body: JSON.stringify({name: name, ignored: ignored, index_content_types: contentTypes})
             }).then(r => r.json()).then(data => {
                 if (data.success) {
                     btn.textContent = 'Spremljeno ✓';
                     btn.style.background = '#188038';
                     setTimeout(() => {
-                        btn.textContent = 'SPREMI I RE-INDEKSIRAJ';
+                        btn.textContent = 'SPREMI POSTAVKE';
                         btn.style.background = '';
                         btn.disabled = false;
                         closeSettings();
@@ -324,7 +339,7 @@
                     btn.textContent = 'Greška!';
                     btn.style.background = '#d93025';
                     setTimeout(() => {
-                        btn.textContent = 'SPREMI I RE-INDEKSIRAJ';
+                        btn.textContent = 'SPREMI POSTAVKE';
                         btn.style.background = '';
                         btn.disabled = false;
                     }, 2000);
@@ -333,11 +348,46 @@
                 btn.textContent = 'Mrežna greška!';
                 btn.style.background = '#d93025';
                 setTimeout(() => {
-                    btn.textContent = 'SPREMI I RE-INDEKSIRAJ';
+                    btn.textContent = 'SPREMI POSTAVKE';
                     btn.style.background = '';
                     btn.disabled = false;
                 }, 2000);
             });
+        }
+
+        function reindexContent() {
+            const btn = document.getElementById('reindexBtn');
+            const status = document.getElementById('reindexStatus');
+            if (!btn) return;
+            btn.disabled = true;
+            btn.textContent = 'Pokrećem...';
+            status.textContent = '';
+            fetch('/reindex_content', { method: 'POST' })
+                .then(r => r.json()).then(data => {
+                    if (data.success) {
+                        btn.textContent = 'INDEKSIRAJ SADRŽAJ';
+                        status.textContent = 'Indeksiranje pokrenuto u pozadini...';
+                        const poll = setInterval(() => {
+                            fetch('/indexing_status').then(r => r.json()).then(s => {
+                                if (!s.running) {
+                                    clearInterval(poll);
+                                    status.textContent = 'Gotovo!';
+                                    btn.disabled = false;
+                                } else {
+                                    status.textContent = 'Indeksiranje u tijeku...';
+                                }
+                            });
+                        }, 3000);
+                    } else {
+                        btn.textContent = 'INDEKSIRAJ SADRŽAJ';
+                        btn.disabled = false;
+                        status.textContent = 'Greška pri pokretanju.';
+                    }
+                }).catch(() => {
+                    btn.textContent = 'INDEKSIRAJ SADRŽAJ';
+                    btn.disabled = false;
+                    status.textContent = 'Mrežna greška.';
+                });
         }
 
         function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
