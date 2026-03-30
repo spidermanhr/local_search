@@ -39,9 +39,14 @@ Fedora/RHEL
 sudo dnf install python3-flask python3-whoosh python3-pymupdf python3-python-docx python3-watchdog xdg-utils -y
 ```
 
+GitHub
 ```bash
 git clone https://github.com/spidermanhr/local_search.git
 cd local_search
+```
+Opcionalno ali nije potrebno ako ste birali Debian/Fedora/RHEL
+
+```bash
 pip install flask whoosh pymupdf python-docx watchdog
 ```
 
